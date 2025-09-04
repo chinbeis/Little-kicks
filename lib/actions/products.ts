@@ -100,38 +100,37 @@ export async function createProduct(data: ProductData) {
 export async function getProducts(
   searchParams: { [key: string]: string | string[] | undefined } = {}
 ) {
-  // Base query for filtering conditions
+  const limit = Number(searchParams.limit) || 8;
+  const offset = Number(searchParams.offset) || 0;
+
   const conditions = [];
   if (searchParams.search) {
     conditions.push(ilike(products.title, `%${searchParams.search}%`));
   }
   if (searchParams.brand) {
-    // This requires a join, so we'll handle it separately if needed.
-    // For now, we assume brand filtering doesn't happen on the limited homepage view.
+    conditions.push(eq(brands.name, searchParams.brand as string));
+  }
+  if (searchParams.size) {
+    conditions.push(eq(sizes.size, searchParams.size as string));
   }
   if (searchParams.section) {
     conditions.push(eq(products.section, searchParams.section as string));
   }
 
-  let productIds: number[] | undefined;
+  // Subquery to get the distinct product IDs with limit and offset
+  const subquery = db
+    .select({ id: products.id })
+    .from(products)
+    .orderBy(desc(products.createdAt))
+    .limit(limit)
+    .offset(offset)
+    .$dynamic();
 
-  if (searchParams.limit) {
-    const latestProductsQuery = db
-      .select({ id: products.id })
-      .from(products)
-      .orderBy(desc(products.createdAt))
-      .limit(Number(searchParams.limit));
-    
-    if (conditions.length > 0) {
-      latestProductsQuery.where(and(...conditions));
-    }
+  const productIdsResult = await subquery.execute();
+  const productIds = productIdsResult.map(p => p.id);
 
-    const latestProducts = await latestProductsQuery.execute();
-    productIds = latestProducts.map(p => p.id);
-
-    if (productIds.length === 0) {
-      return []; // No products found, return early
-    }
+  if (productIds.length === 0) {
+    return [];
   }
 
   const query = db
@@ -150,25 +149,8 @@ export async function getProducts(
     .leftJoin(brands, eq(products.brandId, brands.id))
     .leftJoin(productSizes, eq(products.id, productSizes.productId))
     .leftJoin(sizes, eq(productSizes.sizeId, sizes.id))
+    .where(inArray(products.id, productIds))
     .orderBy(desc(products.createdAt));
-
-  // Rebuild conditions for the main query, including the ID list
-  const mainQueryConditions = [...conditions];
-  if (productIds) {
-    mainQueryConditions.push(inArray(products.id, productIds));
-  }
-  
-  // Add brand and size conditions which require joins
-  if (searchParams.brand) {
-    mainQueryConditions.push(eq(brands.name, searchParams.brand as string));
-  }
-  if (searchParams.size) {
-    mainQueryConditions.push(eq(sizes.size, searchParams.size as string));
-  }
-
-  if (mainQueryConditions.length > 0) {
-    query.where(and(...mainQueryConditions));
-  }
 
   const result = await query.execute();
 

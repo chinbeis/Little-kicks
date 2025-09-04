@@ -1,16 +1,27 @@
-import ProductList from '@/app/components/ProductList';
 import ProductFilters from '@/app/components/ProductFilters';
 import { Suspense } from 'react';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
+import { getProducts } from '@/lib/actions/products';
+import PaginatedProductList from '@/app/components/PaginatedProductList';
 
 export default async function NewCollectionPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Await the searchParams since they're now async in Next.js 15
+  // Await searchParams first
   const resolvedSearchParams = await searchParams;
-  const newCollectionSearchParams = { ...resolvedSearchParams, section: 'new' };
+  
+  const newCollectionSearchParams = { 
+    ...resolvedSearchParams, 
+    section: 'new section', 
+    limit: '8' 
+  };
+  
+  const initialProducts = await getProducts(newCollectionSearchParams);
+  
+  // Create a serializable version for client components
+  const serializableSearchParams = JSON.parse(JSON.stringify(newCollectionSearchParams));
 
   return (
     <div className="container mx-auto p-4">
@@ -18,9 +29,10 @@ export default async function NewCollectionPage({
       <Suspense fallback={<LoadingSpinner />}>
         <ProductFilters />
       </Suspense>
-      <Suspense fallback={<LoadingSpinner />}>
-        <ProductList searchParams={newCollectionSearchParams} />
-      </Suspense>
+      <PaginatedProductList 
+        initialProducts={initialProducts} 
+        searchParams={serializableSearchParams} 
+      />
     </div>
   );
 }
