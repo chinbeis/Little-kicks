@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Upload, X, ImageIcon, Tag, DollarSign, Package, FileText } from 'lucide-react';
 import { createProduct } from '@/lib/actions/products';
 import toast from 'react-hot-toast';
@@ -11,6 +12,7 @@ export default function AdminForm() {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   const handleSizeChange = (size: string) => {
     setSelectedSizes(prev =>
@@ -84,11 +86,17 @@ export default function AdminForm() {
     };
 
     try {
-      await createProduct(data);
-      toast.success('Product created successfully!');
-      formRef.current?.reset();
-      setMainImage(null);
-      setImages([]);
+      const result = await createProduct(data);
+      if (result.success) {
+        toast.success('Product created successfully!');
+        formRef.current?.reset();
+        setMainImage(null);
+        setImages([]);
+        setSelectedSizes([]);
+        router.push('/admin');
+      } else {
+        throw new Error('Failed to create product.');
+      }
     } catch (error) {
       toast.error('Failed to create product.');
     } finally {

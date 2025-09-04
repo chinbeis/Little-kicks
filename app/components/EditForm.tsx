@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Upload, X, ImageIcon, Tag, DollarSign, Package, FileText } from 'lucide-react';
 import { updateProduct } from '@/lib/actions/products';
 import toast from 'react-hot-toast';
@@ -19,6 +20,7 @@ export default function EditForm({ product }: { product: Product }) {
   const [selectedSizes, setSelectedSizes] = useState<string[]>(product.sizes.map(s => s.size.size));
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   const handleSizeChange = (size: string) => {
     setSelectedSizes(prev =>
@@ -81,8 +83,13 @@ export default function EditForm({ product }: { product: Product }) {
     };
 
     try {
-      await updateProduct(product.id, data);
-      toast.success('Product updated successfully!');
+      const result = await updateProduct(product.id, data);
+      if (result.success) {
+        toast.success('Product updated successfully!');
+        router.push('/admin');
+      } else {
+        throw new Error('Failed to update product.');
+      }
     } catch (error) {
       toast.error('Failed to update product.');
     } finally {

@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { products, brands, productImages, sizes, productSizes } from '@/db/schema';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { eq, and, ilike, inArray } from 'drizzle-orm';
+import { eq, and, ilike, inArray, desc } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
 export type ProductData = {
@@ -94,12 +94,46 @@ export async function createProduct(data: ProductData) {
   revalidatePath('/');
   revalidatePath('/admin');
 
-  redirect('/admin');
+  return { success: true };
 }
 
 export async function getProducts(
   searchParams: { [key: string]: string | string[] | undefined } = {}
 ) {
+  // Base query for filtering conditions
+  const conditions = [];
+  if (searchParams.search) {
+    conditions.push(ilike(products.title, `%${searchParams.search}%`));
+  }
+  if (searchParams.brand) {
+    // This requires a join, so we'll handle it separately if needed.
+    // For now, we assume brand filtering doesn't happen on the limited homepage view.
+  }
+  if (searchParams.section) {
+    conditions.push(eq(products.section, searchParams.section as string));
+  }
+
+  let productIds: number[] | undefined;
+
+  if (searchParams.limit) {
+    const latestProductsQuery = db
+      .select({ id: products.id })
+      .from(products)
+      .orderBy(desc(products.createdAt))
+      .limit(Number(searchParams.limit));
+    
+    if (conditions.length > 0) {
+      latestProductsQuery.where(and(...conditions));
+    }
+
+    const latestProducts = await latestProductsQuery.execute();
+    productIds = latestProducts.map(p => p.id);
+
+    if (productIds.length === 0) {
+      return []; // No products found, return early
+    }
+  }
+
   const query = db
     .select({
       id: products.id,
@@ -110,29 +144,30 @@ export async function getProducts(
       brand: brands,
       sizes: sizes,
       section: products.section,
+      createdAt: products.createdAt,
     })
     .from(products)
     .leftJoin(brands, eq(products.brandId, brands.id))
     .leftJoin(productSizes, eq(products.id, productSizes.productId))
-    .leftJoin(sizes, eq(productSizes.sizeId, sizes.id));
+    .leftJoin(sizes, eq(productSizes.sizeId, sizes.id))
+    .orderBy(desc(products.createdAt));
 
-  const conditions = [];
-
-  if (searchParams.search) {
-    conditions.push(ilike(products.title, `%${searchParams.search}%`));
+  // Rebuild conditions for the main query, including the ID list
+  const mainQueryConditions = [...conditions];
+  if (productIds) {
+    mainQueryConditions.push(inArray(products.id, productIds));
   }
+  
+  // Add brand and size conditions which require joins
   if (searchParams.brand) {
-    conditions.push(eq(brands.name, searchParams.brand as string));
+    mainQueryConditions.push(eq(brands.name, searchParams.brand as string));
   }
   if (searchParams.size) {
-    conditions.push(eq(sizes.size, searchParams.size as string));
-  }
-  if (searchParams.section) {
-    conditions.push(eq(products.section, searchParams.section as string));
+    mainQueryConditions.push(eq(sizes.size, searchParams.size as string));
   }
 
-  if (conditions.length > 0) {
-    query.where(and(...conditions));
+  if (mainQueryConditions.length > 0) {
+    query.where(and(...mainQueryConditions));
   }
 
   const result = await query.execute();
@@ -263,5 +298,5 @@ export async function updateProduct(id: number, data: ProductData) {
   revalidatePath(`/products/${id}`);
   revalidatePath('/admin');
 
-  redirect('/admin');
+  return { success: true };
 }
