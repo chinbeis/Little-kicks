@@ -5,6 +5,7 @@ import { products, brands, productImages, sizes, productSizes } from '@/db/schem
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { eq, and, ilike, inArray } from 'drizzle-orm';
+import { redirect } from 'next/navigation';
 
 export type ProductData = {
   title: string;
@@ -93,7 +94,7 @@ export async function createProduct(data: ProductData) {
   revalidatePath('/');
   revalidatePath('/admin');
 
-  return { success: true };
+  redirect('/admin');
 }
 
 export async function getProducts(
@@ -262,5 +263,5 @@ export async function updateProduct(id: number, data: ProductData) {
   revalidatePath(`/products/${id}`);
   revalidatePath('/admin');
 
-  return { success: true };
+  redirect('/admin');
 }
