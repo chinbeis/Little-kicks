@@ -195,9 +195,9 @@ export default function EditForm({ product }: { product: Product }) {
                       defaultValue={product.section || ''}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white"
                     >
-                      <option value="bestseller">Bestseller</option>
-                      <option value="sale">Sale</option>
-                      <option value="new">New</option>
+                      <option value="bestsellers">Bestsellers</option>
+                      <option value="new section">New Section</option>
+                      <option value="all">All</option>
                     </select>
                   </div>
 
