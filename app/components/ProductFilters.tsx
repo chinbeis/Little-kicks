@@ -3,17 +3,18 @@
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { debounce } from 'lodash';
+import Dropdown from './Dropdown';
 
 export default function ProductFilters() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
-  const [sizes, setSizes] = useState<{ id: number; size: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const generatedSizes = Array.from({ length: 23 }, (_, i) => String(20 + i));
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchBrands() {
       try {
         const brandsRes = await fetch('/api/brands');
         if (brandsRes.ok) {
@@ -22,19 +23,11 @@ export default function ProductFilters() {
         } else {
           console.error('Failed to fetch brands');
         }
-
-        const sizesRes = await fetch('/api/sizes');
-        if (sizesRes.ok) {
-          const sizesData = await sizesRes.json();
-          setSizes(sizesData);
-        } else {
-          console.error('Failed to fetch sizes');
-        }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching brands:', error);
       }
     }
-    fetchData();
+    fetchBrands();
   }, []);
 
   const handleFilterChange = (filterName: string, value: string) => {
@@ -44,7 +37,7 @@ export default function ProductFilters() {
     } else {
       params.delete(filterName);
     }
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const debouncedSearch = useCallback(
@@ -118,60 +111,30 @@ export default function ProductFilters() {
         </div>
 
         {/* Brand Filter */}
-        <div>
-          <label htmlFor="brand" className="block text-sm font-medium text-gray-700 mb-2">
-            Brand
-          </label>
-          <div className="relative">
-            <select
-              id="brand"
-              name="brand"
-              className="block w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white appearance-none cursor-pointer"
-              onChange={(e) => handleFilterChange('brand', e.target.value)}
-              defaultValue={searchParams.get('brand') || ''}
-            >
-              <option value="">All Brands</option>
-              {brands.map((brand) => (
-                <option key={brand.id} value={brand.name}>
-                  {brand.name}
-                </option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-        </div>
+        <Dropdown
+          id="brand"
+          label="Brand"
+          options={[
+            { value: '', label: 'All Brands' },
+            ...brands
+              .filter((brand) => brand.name && brand.name.trim() !== '')
+              .map((brand) => ({ value: brand.name, label: brand.name })),
+          ]}
+          selectedValue={searchParams.get('brand') || ''}
+          onChange={(value) => handleFilterChange('brand', value)}
+        />
 
         {/* Size Filter */}
-        <div>
-          <label htmlFor="size" className="block text-sm font-medium text-gray-700 mb-2">
-            Размер
-          </label>
-          <div className="relative">
-            <select
-              id="size"
-              name="size"
-              className="block w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white appearance-none cursor-pointer"
-              onChange={(e) => handleFilterChange('size', e.target.value)}
-              defaultValue={searchParams.get('size') || ''}
-            >
-              <option value="">Бүх Размер</option>
-              {sizes.map((size) => (
-                <option key={size.id} value={size.size}>
-                  {size.size}
-                </option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-        </div>
+        <Dropdown
+          id="size"
+          label="Размер"
+          options={[
+            { value: '', label: 'Бүх Размер' },
+            ...generatedSizes.map((size) => ({ value: size, label: size })),
+          ]}
+          selectedValue={searchParams.get('size') || ''}
+          onChange={(value) => handleFilterChange('size', value)}
+        />
       </div>
 
       {/* Active Filters Display */}
