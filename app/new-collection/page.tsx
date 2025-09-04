@@ -6,9 +6,11 @@ import LoadingSpinner from '@/app/components/LoadingSpinner';
 export default async function NewCollectionPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const newCollectionSearchParams = { ...searchParams, section: 'new' };
+  // Await the searchParams since they're now async in Next.js 15
+  const resolvedSearchParams = await searchParams;
+  const newCollectionSearchParams = { ...resolvedSearchParams, section: 'new' };
 
   return (
     <div className="container mx-auto p-4">

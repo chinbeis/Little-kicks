@@ -3,12 +3,14 @@ import ProductFilters from '@/app/components/ProductFilters';
 import { Suspense } from 'react';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 
-export default function BestsellersPage({
+export default async function BestsellersPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const bestsellersSearchParams = { ...searchParams, section: 'bestseller' };
+  // Await the searchParams since they're now async in Next.js 15
+  const resolvedSearchParams = await searchParams;
+  const bestsellersSearchParams = { ...resolvedSearchParams, section: 'bestseller' };
 
   return (
     <div className="container mx-auto p-4">
