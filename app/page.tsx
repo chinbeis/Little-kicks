@@ -1,5 +1,5 @@
-import ProductFilters from '@/app/components/ProductFilters';
 import ProductList from '@/app/components/ProductList';
+import { getProducts } from '@/lib/actions/products';
 import Hero from '@/app/components/Hero';
 import Bestsellers from '@/app/components/Bestsellers';
 import NewCollection from '@/app/components/NewCollection';
@@ -8,8 +8,8 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 
-export default function HomePage() {
-  const searchParams = { limit: '4' };
+export default async function HomePage() {
+  const products = await getProducts({ limit: '4' });
 
   return (
     <div>
@@ -20,7 +20,7 @@ export default function HomePage() {
       </div>
       <div className="container mx-auto p-4">
         <Suspense fallback={<LoadingSpinner />}>
-          <ProductList searchParams={searchParams} />
+          <ProductList products={products} />
         </Suspense>
         <div className="text-center mt-8">
           <Link

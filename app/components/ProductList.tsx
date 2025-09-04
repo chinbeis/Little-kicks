@@ -1,14 +1,14 @@
-import { getProducts } from '@/lib/actions/products';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getProducts } from '@/lib/actions/products';
 
-export default async function ProductList({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
-}) {
-  const products = await getProducts(searchParams);
+type Product = Awaited<ReturnType<typeof getProducts>>[0];
 
+interface ProductListProps {
+  products: Product[];
+}
+
+export default function ProductList({ products }: ProductListProps) {
   if (!products || products.length === 0) {
     return (
       <div className="py-16 bg-gray-50">
@@ -79,10 +79,10 @@ export default async function ProductList({
                   )}
 
                   {/* Price Badge - only if price > 0 */}
-                  {product.price && product.price > 0 && (
+                  {product.price && Number(product.price) > 0 && (
                     <div className="absolute top-3 right-3 z-10">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-600 text-white shadow-lg">
-                        {product.price.toLocaleString()}₮
+                        {Number(product.price).toLocaleString()}₮
                       </span>
                     </div>
                   )}
@@ -126,11 +126,11 @@ export default async function ProductList({
                   )}
 
                   {/* Price Section */}
-                  {product.price && product.price > 0 && (
+                  {product.price && Number(product.price) > 0 && (
                     <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
                       <div className="flex items-baseline gap-1">
                         <span className="text-xl font-bold text-gray-900">
-                          {product.price.toLocaleString()}
+                          {Number(product.price).toLocaleString()}
                         </span>
                         <span className="text-sm text-gray-600 font-medium">₮</span>
                       </div>
@@ -138,7 +138,7 @@ export default async function ProductList({
                   )}
 
                   {/* No Price State */}
-                  {(!product.price || product.price === 0) && (
+                  {(!product.price || Number(product.price) === 0) && (
                     <div className="mt-4 pt-3 border-t border-gray-100">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">

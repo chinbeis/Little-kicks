@@ -8,10 +8,7 @@ import LoadingSpinner from './LoadingSpinner';
 import { InferSelectModel } from 'drizzle-orm';
 import { products, brands, sizes } from '@/db/schema';
 
-type Product = InferSelectModel<typeof products> & {
-  brand: InferSelectModel<typeof brands> | null;
-  sizes: { size: InferSelectModel<typeof sizes> }[];
-};
+type Product = Awaited<ReturnType<typeof getProducts>>[0];
 
 interface PaginatedProductListProps {
   initialProducts: Product[];
@@ -23,15 +20,48 @@ export default function PaginatedProductList({ initialProducts, searchParams }: 
   const [offset, setOffset] = useState(8);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialProducts.length === 8);
+  const [error, setError] = useState<string | null>(null);
 
   const loadMoreProducts = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous requests
+    
     setIsLoading(true);
-    const newProducts = await getProducts({ ...searchParams, offset: String(offset), limit: '8' });
-    setProducts(prevProducts => [...prevProducts, ...newProducts]);
-    setOffset(prevOffset => prevOffset + 8);
-    setHasMore(newProducts.length === 8);
-    setIsLoading(false);
+    setError(null);
+    
+    try {
+      console.log('Loading more products with offset:', offset); // Debug log
+      
+      const newProducts = await getProducts({ 
+        ...searchParams, 
+        offset: String(offset), 
+        limit: '8' 
+      });
+      
+      console.log('Loaded products:', newProducts.length); // Debug log
+      
+      if (newProducts && newProducts.length > 0) {
+        setProducts(prevProducts => [...prevProducts, ...newProducts]);
+        setHasMore(newProducts.length === 8);
+        setOffset(prevOffset => prevOffset + 8);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Error loading more products:', err);
+      setError('Failed to load more products. Please try again.');
+      setHasMore(false);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // Reset state when searchParams change
+  useEffect(() => {
+    setProducts(initialProducts);
+    setOffset(8);
+    setHasMore(initialProducts.length === 8);
+    setError(null);
+  }, [initialProducts, searchParams]);
 
   return (
     <div className="py-16">
@@ -112,12 +142,26 @@ export default function PaginatedProductList({ initialProducts, searchParams }: 
             </Link>
           ))}
         </div>
-        {hasMore && (
+        
+        {/* Error message */}
+        {error && (
+          <div className="text-center mt-8">
+            <div className="inline-flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {error}
+            </div>
+          </div>
+        )}
+        
+        {/* Load more button */}
+        {hasMore && !error && (
           <div className="text-center mt-12">
             <button
               onClick={loadMoreProducts}
               disabled={isLoading}
-              className="inline-flex items-center gap-2 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-semibold py-3 px-8 rounded-xl transition-all duration-300 hover:shadow-md disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-semibold py-3 px-8 rounded-xl transition-all duration-300 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
@@ -133,6 +177,12 @@ export default function PaginatedProductList({ initialProducts, searchParams }: 
                 </>
               )}
             </button>
+          </div>
+        )}
+        
+        {/* No more products message */}
+        {!hasMore && !error && products.length > initialProducts.length && (
+          <div className="text-center mt-12">
           </div>
         )}
       </div>

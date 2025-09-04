@@ -92,73 +92,104 @@ export async function getProducts(
   const offset = Number(searchParams.offset) || 0;
 
   const conditions = [];
+  
+  // Search by title
   if (searchParams.search) {
     conditions.push(ilike(products.title, `%${searchParams.search}%`));
   }
+  
+  // Filter by brand
   if (searchParams.brand) {
     conditions.push(eq(brands.name, searchParams.brand as string));
   }
-  if (searchParams.size) {
-    conditions.push(eq(sizes.size, searchParams.size as string));
-  }
-  if (searchParams.section) {
+  
+  // Filter by section
+  if (searchParams.section && searchParams.section !== 'all') {
     conditions.push(eq(products.section, searchParams.section as string));
   }
 
-  // Subquery to get the distinct product IDs with limit and offset
-  const subquery = db
-    .select({ id: products.id })
-    .from(products)
-    .orderBy(desc(products.createdAt))
-    .limit(limit)
-    .offset(offset)
-    .$dynamic();
-
-  const productIdsResult = await subquery.execute();
-  const productIds = productIdsResult.map(p => p.id);
-
-  if (productIds.length === 0) {
-    return [];
-  }
-
-  const query = db
+  // First, get the products with their brands (without sizes to avoid duplication)
+  let productsQuery = db
     .select({
       id: products.id,
       title: products.title,
       description: products.description,
       price: products.price,
       mainImageUrl: products.mainImageUrl,
-      brand: brands,
-      sizes: sizes,
       section: products.section,
       createdAt: products.createdAt,
+      brand: brands,
     })
     .from(products)
     .leftJoin(brands, eq(products.brandId, brands.id))
-    .leftJoin(productSizes, eq(products.id, productSizes.productId))
-    .leftJoin(sizes, eq(productSizes.sizeId, sizes.id))
-    .where(inArray(products.id, productIds))
     .orderBy(desc(products.createdAt));
 
-  const result = await query.execute();
+  // Apply conditions
+  if (conditions.length > 0) {
+    productsQuery.where(and(...conditions));
+  }
 
-  // Group sizes per product
-  const productMap = new Map();
-  result.forEach((row) => {
-    if (!productMap.has(row.id)) {
-      productMap.set(row.id, {
-        ...row,
-        sizes: [],
-      });
+  // Handle size filtering separately if needed
+  if (searchParams.size) {
+    const productsWithSize = await db
+      .select({
+        productId: productSizes.productId,
+      })
+      .from(productSizes)
+      .leftJoin(sizes, eq(productSizes.sizeId, sizes.id))
+      .where(eq(sizes.size, searchParams.size as string));
+    
+    const productIds = productsWithSize.map(p => p.productId);
+    if (productIds.length > 0) {
+      conditions.push(inArray(products.id, productIds as number[]));
+      productsQuery.where(and(...conditions));
+    } else {
+      // No products with this size, return empty array
+      return [];
     }
-    if (row.sizes) {
-      productMap.get(row.id).sizes.push(row.sizes);
+  }
+
+  // Apply limit and offset
+  const productsResult = await productsQuery.limit(limit).offset(offset);
+
+  // If no products found, return empty array
+  if (productsResult.length === 0) {
+    return [];
+  }
+
+  // Get all product IDs
+  const productIds = productsResult.map(p => p.id);
+
+  // Get sizes for these products
+  const sizesResult = await db
+    .select({
+      productId: productSizes.productId,
+      size: sizes,
+    })
+    .from(productSizes)
+    .leftJoin(sizes, eq(productSizes.sizeId, sizes.id))
+    .where(inArray(productSizes.productId, productIds as number[]));
+
+  // Group sizes by product ID
+  const sizesByProduct = new Map();
+  sizesResult.forEach((row) => {
+    if (!sizesByProduct.has(row.productId)) {
+      sizesByProduct.set(row.productId, []);
+    }
+    if (row.size) {
+      sizesByProduct.get(row.productId).push({ size: row.size });
     }
   });
 
-  return Array.from(productMap.values());
-}
+  // Combine products with their sizes
+  const finalResult = productsResult.map(product => ({
+    ...product,
+    sizes: sizesByProduct.get(product.id) || [],
+  }));
 
+  console.log(`Fetched ${finalResult.length} products with offset ${offset}`);
+  return finalResult;
+}
 
 export async function getProductById(id: number) {
   const product = await db.query.products.findFirst({
