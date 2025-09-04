@@ -11,6 +11,7 @@ export default function ImagePreviewModal({
   onClose: () => void;
 }) {
   useEffect(() => {
+    //adasda
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
