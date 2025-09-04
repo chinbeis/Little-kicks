@@ -27,34 +27,22 @@ export async function createProduct(data: ProductData) {
     throw new Error('Main image is required.');
   }
 
-  // Upload main image
-  const mainImagePath = `public/${mainImage.name}-${Date.now()}`;
-  const { data: mainImageData, error: mainImageError } = await supabase.storage
-    .from('product-images')
-    .upload(mainImagePath, mainImage);
-
-  if (mainImageError) {
-    throw new Error(`Failed to upload main image: ${mainImageError.message}`);
-  }
-
-  // Upload additional images
-  const imageUrls = await Promise.all(
-    images.map(async (image) => {
-      const imagePath = `public/${image.name}-${Date.now()}`;
-      const { data: imageData, error: imageError } = await supabase.storage
-        .from('product-images')
-        .upload(imagePath, image);
-
-      if (imageError) {
-        throw new Error(`Failed to upload image: ${imageError.message}`);
+  const allImages = [mainImage, ...images];
+  const uploadPromises = allImages.map(image => {
+    const imagePath = `public/${Date.now()}-${Math.random()}-${image.name}`;
+    return supabase.storage.from('product-images').upload(imagePath, image).then(result => {
+      if (result.error) {
+        throw new Error(`Failed to upload image: ${result.error.message}`);
       }
       return supabase.storage.from('product-images').getPublicUrl(imagePath).data.publicUrl;
-    })
-  );
+    });
+  });
+
+  const [mainImageUrl, ...imageUrls] = await Promise.all(uploadPromises);
 
   const productData = {
     ...rest,
-    mainImageUrl: supabase.storage.from('product-images').getPublicUrl(mainImagePath).data.publicUrl,
+    mainImageUrl,
     imageUrls,
   };
 
@@ -204,34 +192,33 @@ export async function updateProduct(id: number, data: ProductData) {
   const { mainImage, images, ...rest } = data;
 
   let mainImageUrl: string | undefined = undefined;
+  let imageUrls: string[] = [];
 
+  const allImages = [...images];
   if (mainImage) {
-    // Upload main image
-    const mainImagePath = `public/${mainImage.name}-${Date.now()}`;
-    const { data: mainImageData, error: mainImageError } = await supabase.storage
-      .from('product-images')
-      .upload(mainImagePath, mainImage);
-
-    if (mainImageError) {
-      throw new Error(`Failed to upload main image: ${mainImageError.message}`);
-    }
-    mainImageUrl = supabase.storage.from('product-images').getPublicUrl(mainImagePath).data.publicUrl;
+    allImages.unshift(mainImage);
   }
 
-  // Upload additional images
-  const imageUrls = await Promise.all(
-    images.map(async (image) => {
-      const imagePath = `public/${image.name}-${Date.now()}`;
-      const { data: imageData, error: imageError } = await supabase.storage
-        .from('product-images')
-        .upload(imagePath, image);
+  if (allImages.length > 0) {
+    const uploadPromises = allImages.map(image => {
+      const imagePath = `public/${Date.now()}-${Math.random()}-${image.name}`;
+      return supabase.storage.from('product-images').upload(imagePath, image).then(result => {
+        if (result.error) {
+          throw new Error(`Failed to upload image: ${result.error.message}`);
+        }
+        return supabase.storage.from('product-images').getPublicUrl(imagePath).data.publicUrl;
+      });
+    });
 
-      if (imageError) {
-        throw new Error(`Failed to upload image: ${imageError.message}`);
-      }
-      return supabase.storage.from('product-images').getPublicUrl(imagePath).data.publicUrl;
-    })
-  );
+    const uploadedUrls = await Promise.all(uploadPromises);
+    
+    if (mainImage) {
+      mainImageUrl = uploadedUrls[0];
+      imageUrls = uploadedUrls.slice(1);
+    } else {
+      imageUrls = uploadedUrls;
+    }
+  }
 
   const productData = {
     ...rest,
