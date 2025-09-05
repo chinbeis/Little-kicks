@@ -13,8 +13,8 @@ export const handleSignIn = async (formData: FormData) => {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
 
-  if (email !== "admin@example.com" || password !== "password") {
-    return redirect("/login?error=Invalid credentials");
+  if (email !== "admin" || password !== "admin") {
+    return redirect("/login");
   }
 
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { deleteProduct } from '@/lib/actions/deleteProduct';
+import DeleteProductForm from './DeleteProductForm';
 
 // This is an inferred type based on usage in the admin page.
 // It should be compatible with the data returned from getProducts().
@@ -50,11 +50,7 @@ export default function AdminProductList({ products }: AdminProductListProps) {
                   Edit
                 </button>
               </Link>
-              <form action={deleteProduct.bind(null, product.id)}>
-                <button type="submit" className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
-                  Delete
-                </button>
-              </form>
+              <DeleteProductForm productId={product.id} />
             </div>
           </div>
         ))}
