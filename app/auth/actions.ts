@@ -13,7 +13,7 @@ export const handleSignIn = async (formData: FormData) => {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
 
-  if (email !== "admin" || password !== "admin") {
+  if (email !== "admin@gmail.com" || password !== "admin") {
     return redirect("/login");
   }
 
